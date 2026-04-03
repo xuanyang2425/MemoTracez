@@ -1,0 +1,63 @@
+name: Build MemoTrace EXE (fixed)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "master", "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      MAIN_SCRIPT: example/3-exporter.py
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.10.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10.13'
+          architecture: 'x64'
+
+      - name: Show Python version
+        shell: pwsh
+        run: |
+          python --version
+          py --version
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          if (Test-Path requirements.txt) {
+            python -m pip install -r requirements.txt
+          }
+          python -m pip install pyinstaller python-docx
+
+      - name: Clean old build
+        shell: pwsh
+        run: |
+          if (Test-Path build) { Remove-Item build -Recurse -Force }
+          if (Test-Path dist) { Remove-Item dist -Recurse -Force }
+
+      - name: Build EXE
+        shell: pwsh
+        run: |
+          pyinstaller --clean --noconsole --onefile --name MemoTrace_Exporter $env:MAIN_SCRIPT
+
+      - name: Show dist files
+        shell: pwsh
+        run: |
+          Get-ChildItem dist -Force | Format-Table Name,Length,LastWriteTime -AutoSize
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MemoTrace_Exporter_Windows
+          path: dist/MemoTrace_Exporter.exe
+          if-no-files-found: error
